@@ -1,10 +1,12 @@
 > # In this branch, I will merge in all new features and fixes that I (and others, if tested and found to be stable) on the main repo provide, before they are merged in the main branch.
 > 
 > ### this currently includes these PRs:
+> #### * [#441](https://github.com/opentypejs/opentype.js/pull/450): Add support for parsing GDEF table
 > #### * [#445](https://github.com/opentypejs/opentype.js/pull/445): Initialize CFF DICT's _defaultWidthX and _nominalWidthX
 > #### * [#448](https://github.com/opentypejs/opentype.js/pull/448): minor cleanup on doc comments and error messages
 > #### * [#449](https://github.com/opentypejs/opentype.js/pull/449): Add writing support for Multiple Substitution (lookup type 2)
 > #### * [#450](https://github.com/opentypejs/opentype.js/pull/450): implement writing of coverage format 2, added test for this functionality
+> #### * [#451](https://github.com/opentypejs/opentype.js/pull/450): Fix undefined chararray
 
 # opentype.js &middot; [![Build Status](https://travis-ci.org/opentypejs/opentype.js.svg?branch=master)](https://travis-ci.org/opentypejs/opentype.js) [![npm](https://img.shields.io/npm/v/opentype.js.svg?style=flat-square)](https://www.npmjs.com/package/opentype.js) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/opentypejs/opentype.js/blob/master/LICENSE) [![david-dm](https://david-dm.org/opentypejs/opentype.js.svg)](https://david-dm.org/opentypejs/opentype.js)
 
