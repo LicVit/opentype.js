@@ -1,3 +1,4 @@
+> # In this branch, I will merge in all new features and fixes that I (and others, if tested and found to be stable) on the main repo provide, before they are merged in the main branch.
 
 # opentype.js &middot; [![Build Status](https://travis-ci.org/opentypejs/opentype.js.svg?branch=master)](https://travis-ci.org/opentypejs/opentype.js) [![npm](https://img.shields.io/npm/v/opentype.js.svg?style=flat-square)](https://www.npmjs.com/package/opentype.js) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/opentypejs/opentype.js/blob/master/LICENSE) [![david-dm](https://david-dm.org/opentypejs/opentype.js.svg)](https://david-dm.org/opentypejs/opentype.js)
 
