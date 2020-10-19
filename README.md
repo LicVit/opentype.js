@@ -1,6 +1,7 @@
 > # In this branch, I will merge in all new features and fixes that I (and others, if tested and found to be stable) on the main repo provide, before they are merged in the main branch.
 > 
 > ### this currently includes these PRs:
+> #### * [#445](https://github.com/opentypejs/opentype.js/pull/445): Initialize CFF DICT's _defaultWidthX and _nominalWidthX
 > #### * [#448](https://github.com/opentypejs/opentype.js/pull/448): minor cleanup on doc comments and error messages
 > #### * [#449](https://github.com/opentypejs/opentype.js/pull/449): Add writing support for Multiple Substitution (lookup type 2)
 > #### * [#450](https://github.com/opentypejs/opentype.js/pull/450): implement writing of coverage format 2, added test for this functionality
