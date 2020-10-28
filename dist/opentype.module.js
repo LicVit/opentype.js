@@ -1898,9 +1898,14 @@ sizeOf.LITERAL = function(v) {
  * @constructor
  */
 function Table(tableName, fields, options) {
-    for (var i = 0; i < fields.length; i += 1) {
-        var field = fields[i];
-        this[field.name] = field.value;
+    // For coverage tables with coverage format 2, we do not want to add the coverage data directly to the table object,
+    // as this will result in wrong encoding order of the coverage data on serialization to bytes.
+    // The fallback of using the field values directly when not present on the table is handled in types.encode.TABLE() already.
+    if (fields.length && (fields[0].name !== 'coverageFormat' || fields[0].value === 1)) {
+        for (var i = 0; i < fields.length; i += 1) {
+            var field = fields[i];
+            this[field.name] = field.value;
+        }
     }
 
     this.tableName = tableName;
@@ -1989,8 +1994,18 @@ function Coverage(coverageTable) {
             [{name: 'coverageFormat', type: 'USHORT', value: 1}]
             .concat(ushortList('glyph', coverageTable.glyphs))
         );
+    } else if (coverageTable.format === 2) {
+        Table.call(this, 'coverageTable',
+            [{name: 'coverageFormat', type: 'USHORT', value: 2}]
+            .concat(recordList('rangeRecord', coverageTable.ranges, function(RangeRecord) {
+                return [
+                    {name: 'startGlyphID', type: 'USHORT', value: RangeRecord.start},
+                    {name: 'endGlyphID', type: 'USHORT', value: RangeRecord.end},
+                    {name: 'startCoverageIndex', type: 'USHORT', value: RangeRecord.index} ];
+            }))
+        );
     } else {
-        check.assert(false, 'Can\'t create coverage table format 2 yet.');
+        check.assert(false, 'Coverage format must be 1 or 2.');
     }
 }
 Coverage.prototype = Object.create(Table.prototype);
@@ -6747,6 +6762,16 @@ subtableMakers[1] = function makeLookup1(subtable) {
     }
 };
 
+subtableMakers[2] = function makeLookup2(subtable) {
+    check.assert(subtable.substFormat === 1, 'Lookup type 2 substFormat must be 1.');
+    return new table.Table('substitutionTable', [
+        {name: 'substFormat', type: 'USHORT', value: 1},
+        {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
+    ].concat(table.tableList('seqSet', subtable.sequences, function(sequenceSet) {
+        return new table.Table('sequenceSetTable', table.ushortList('sequence', sequenceSet));
+    })));
+};
+
 subtableMakers[3] = function makeLookup3(subtable) {
     check.assert(subtable.substFormat === 1, 'Lookup type 3 substFormat must be 1.');
     return new table.Table('substitutionTable', [
@@ -6770,6 +6795,61 @@ subtableMakers[4] = function makeLookup4(subtable) {
             );
         }));
     })));
+};
+
+subtableMakers[6] = function makeLookup6(subtable) {
+    if (subtable.substFormat === 1) {
+        var returnTable = new table.Table('chainContextTable', [
+            {name: 'substFormat', type: 'USHORT', value: subtable.substFormat},
+            {name: 'coverage', type: 'TABLE', value: new table.Coverage(subtable.coverage)}
+        ].concat(table.tableList('chainRuleSet', subtable.chainRuleSets, function(chainRuleSet) {
+            return new table.Table('chainRuleSetTable', table.tableList('chainRule', chainRuleSet, function(chainRule) {
+                var tableData = table.ushortList('backtrackGlyph', chainRule.backtrack, chainRule.backtrack.length)
+                    .concat(table.ushortList('inputGlyph', chainRule.input, chainRule.input.length + 1))
+                    .concat(table.ushortList('lookaheadGlyph', chainRule.lookahead, chainRule.lookahead.length))
+                    .concat(table.ushortList('substitution', [], chainRule.lookupRecords.length));
+
+                chainRule.lookupRecords.forEach(function (record, i) {
+                    tableData = tableData
+                        .concat({name: 'sequenceIndex' + i, type: 'USHORT', value: record.sequenceIndex})
+                        .concat({name: 'lookupListIndex' + i, type: 'USHORT', value: record.lookupListIndex});
+                });
+                return new table.Table('chainRuleTable', tableData);
+            }));
+        })));
+        return returnTable;
+    } else if (subtable.substFormat === 2) {
+        check.assert(false, 'lookup type 6 format 2 is not yet supported.');
+    } else if (subtable.substFormat === 3) {
+        var tableData = [
+            {name: 'substFormat', type: 'USHORT', value: subtable.substFormat} ];
+
+        tableData.push({name: 'backtrackGlyphCount', type: 'USHORT', value: subtable.backtrackCoverage.length});
+        subtable.backtrackCoverage.forEach(function (coverage, i) {
+            tableData.push({name: 'backtrackCoverage' + i, type: 'TABLE', value: new table.Coverage(coverage)});
+        });
+        tableData.push({name: 'inputGlyphCount', type: 'USHORT', value: subtable.inputCoverage.length});
+        subtable.inputCoverage.forEach(function (coverage, i) {
+            tableData.push({name: 'inputCoverage' + i, type: 'TABLE', value: new table.Coverage(coverage)});
+        });
+        tableData.push({name: 'lookaheadGlyphCount', type: 'USHORT', value: subtable.lookaheadCoverage.length});
+        subtable.lookaheadCoverage.forEach(function (coverage, i) {
+            tableData.push({name: 'lookaheadCoverage' + i, type: 'TABLE', value: new table.Coverage(coverage)});
+        });
+
+        tableData.push({name: 'substitutionCount', type: 'USHORT', value: subtable.lookupRecords.length});
+        subtable.lookupRecords.forEach(function (record, i) {
+            tableData = tableData
+                .concat({name: 'sequenceIndex' + i, type: 'USHORT', value: record.sequenceIndex})
+                .concat({name: 'lookupListIndex' + i, type: 'USHORT', value: record.lookupListIndex});
+        });
+
+        var returnTable$1 = new table.Table('chainContextTable', tableData);
+
+        return returnTable$1;
+    }
+
+    check.assert(false, 'lookup type 6 format must be 1, 2 or 3.');
 };
 
 function makeGsubTable(gsub) {
@@ -7656,6 +7736,33 @@ Substitution.prototype.getSingle = function(feature, script, language) {
 };
 
 /**
+ * List all multiple substitutions (lookup type 2) for a given script, language, and feature.
+ * @param {string} [script='DFLT']
+ * @param {string} [language='dflt']
+ * @param {string} feature - 4-character feature name ('ccmp', 'stch')
+ * @return {Array} substitutions - The list of substitutions.
+ */
+Substitution.prototype.getMultiple = function(feature, script, language) {
+    var substitutions = [];
+    var lookupTables = this.getLookupTables(script, language, feature, 2);
+    for (var idx = 0; idx < lookupTables.length; idx++) {
+        var subtables = lookupTables[idx].subtables;
+        for (var i = 0; i < subtables.length; i++) {
+            var subtable = subtables[i];
+            var glyphs = this.expandCoverage(subtable.coverage);
+            var j = (void 0);
+
+            for (j = 0; j < glyphs.length; j++) {
+                var glyph = glyphs[j];
+                var replacements = subtable.sequences[j];
+                substitutions.push({ sub: glyph, by: replacements });
+            }
+        }
+    }
+    return substitutions;
+};
+
+/**
  * List all alternates (lookup type 3) for a given script, language, and feature.
  * @param {string} [script='DFLT']
  * @param {string} [language='dflt']
@@ -7736,6 +7843,32 @@ Substitution.prototype.addSingle = function(feature, substitution, script, langu
         subtable.substitute.splice(pos, 0, 0);
     }
     subtable.substitute[pos] = substitution.by;
+};
+
+/**
+ * Add or modify a multiple substitution (lookup type 2)
+ * @param {string} feature - 4-letter feature name ('ccmp', 'stch')
+ * @param {Object} substitution - { sub: id, by: [id] } for format 2.
+ * @param {string} [script='DFLT']
+ * @param {string} [language='dflt']
+ */
+Substitution.prototype.addMultiple = function(feature, substitution, script, language) {
+    check.assert(substitution.by instanceof Array && substitution.by.length > 1, 'Multiple: "by" must be an array of two or more ids');
+    var lookupTable = this.getLookupTables(script, language, feature, 2, true)[0];
+    var subtable = getSubstFormat(lookupTable, 1, {                // lookup type 2 subtable, format 1, coverage format 1
+        substFormat: 1,
+        coverage: {format: 1, glyphs: []},
+        sequences: []
+    });
+    check.assert(subtable.coverage.format === 1, 'Multiple: unable to modify coverage table format ' + subtable.coverage.format);
+    var coverageGlyph = substitution.sub;
+    var pos = this.binSearch(subtable.coverage.glyphs, coverageGlyph);
+    if (pos < 0) {
+        pos = -1 - pos;
+        subtable.coverage.glyphs.splice(pos, 0, coverageGlyph);
+        subtable.sequences.splice(pos, 0, 0);
+    }
+    subtable.sequences[pos] = substitution.by;
 };
 
 /**
@@ -7828,7 +7961,13 @@ Substitution.prototype.getFeature = function(feature, script, language) {
                     .concat(this.getAlternates(feature, script, language));
         case 'dlig':
         case 'liga':
-        case 'rlig': return this.getLigatures(feature, script, language);
+        case 'rlig':
+            return this.getLigatures(feature, script, language);
+        case 'ccmp':
+            return this.getMultiple(feature, script, language)
+                .concat(this.getLigatures(feature, script, language));
+        case 'stch':
+            return this.getMultiple(feature, script, language);
     }
     return undefined;
 };
@@ -7855,6 +7994,11 @@ Substitution.prototype.add = function(feature, sub, script, language) {
         case 'dlig':
         case 'liga':
         case 'rlig':
+            return this.addLigature(feature, sub, script, language);
+        case 'ccmp':
+            if (sub.by instanceof Array) {
+                return this.addMultiple(feature, sub, script, language);
+            }
             return this.addLigature(feature, sub, script, language);
     }
     return undefined;
